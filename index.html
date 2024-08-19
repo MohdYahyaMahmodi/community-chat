@@ -64,6 +64,22 @@
             max-height: calc(100vh - 120px);
             overflow-y: auto;
         }
+        .reaction-selector {
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none;  /* Internet Explorer 10+ */
+        }
+        .reaction-selector::-webkit-scrollbar { /* WebKit */
+            width: 0;
+            height: 0;
+        }
+        .reaction-btn {
+            flex: 0 0 auto;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-darkbg text-gray-800 dark:text-gray-200 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-200">
@@ -88,6 +104,7 @@
         <!-- Sidebar (User List) - Hidden on mobile, narrower on larger screens -->
         <div id="sidebar" class="w-full md:w-1/5 lg:w-1/6 xl:w-1/7 bg-gray-100 dark:bg-darkgray p-4 hidden md:block border-r border-gray-200 dark:border-gray-700">
             <h2 class="text-xl font-bold mb-4 text-gray-700 dark:text-gray-300">Online Users</h2>
+            <div id="userCount" class="text-sm text-gray-500 dark:text-gray-400 mb-2"></div>
             <ul id="userList" class="space-y-2"></ul>
         </div>
 
@@ -112,6 +129,9 @@
                 <ul id="messages" class="space-y-4"></ul>
             </div>
 
+            <!-- Typing Indicator -->
+            <div id="typingIndicator" class="text-sm text-gray-500 dark:text-gray-400 px-4 py-2 hidden"></div>
+
             <!-- Message Input Form -->
             <form id="messageForm" class="bg-white dark:bg-darkgray p-4 flex items-center space-x-2 border-t border-gray-200 dark:border-gray-700">
                 <input id="messageInput" type="text" placeholder="Type your message..." class="flex-1 px-4 py-2 bg-gray-100 dark:bg-darkergray text-gray-800 dark:text-gray-200 rounded border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:focus:ring-gray-500">
@@ -126,6 +146,7 @@
     <div id="userListModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 hidden">
         <div class="bg-white dark:bg-darkgray p-4 rounded-lg shadow-lg w-11/12 max-w-md">
             <h2 class="text-xl font-bold mb-4 text-gray-700 dark:text-gray-300">Online Users</h2>
+            <div id="mobileUserCount" class="text-sm text-gray-500 dark:text-gray-400 mb-2"></div>
             <ul id="mobileUserList" class="space-y-2"></ul>
             <button id="closeUserList" class="mt-4 w-full bg-gray-600 dark:bg-darkergray text-white py-2 px-4 rounded hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors duration-300">
                 Close

@@ -13,20 +13,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const messageForm = document.getElementById('messageForm');
   const messageInput = document.getElementById('messageInput');
   const toggleThemeButton = document.getElementById('toggleTheme');
+  const userCount = document.getElementById('userCount');
+  const typingIndicator = document.getElementById('typingIndicator');
   let socket;
+  let typingTimeout;
 
-  const colors = [
-      '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98FB98', 
-      '#DDA0DD', '#40E0D0', '#FF69B4', '#BA55D3', '#FF7F50'
-  ];
-
-  function getColorForUsername(username) {
-      let hash = 0;
-      for (let i = 0; i < username.length; i++) {
-          hash = username.charCodeAt(i) + ((hash << 5) - hash);
-      }
-      return colors[Math.abs(hash) % colors.length];
-  }
+  const reactions = ['👍', '👎', '😄', '😢', '😮', '❤️'];
 
   function formatTimestamp(timestamp) {
       const date = new Date(timestamp);
@@ -34,17 +26,50 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function addMessage(msg) {
-      const item = document.createElement('li');
-      item.className = 'mb-2';
-      item.innerHTML = `
-          <div class="flex items-start">
-              <span class="font-bold mr-2" style="color: ${getColorForUsername(msg.user)}">${msg.user}</span>
-              <span class="flex-1 message-content">${msg.text}</span>
-          </div>
-          <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">${formatTimestamp(msg.timestamp)}</div>
-      `;
-      messages.appendChild(item);
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    const item = document.createElement('li');
+    item.className = 'mb-2 relative group';
+    item.dataset.messageId = msg.id;
+    item.innerHTML = `
+        <div class="flex items-start">
+            <span class="font-bold mr-2" style="color: ${msg.user.color}">${msg.user.name}</span>
+            <span class="flex-1 message-content">${msg.text}</span>
+        </div>
+        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">${formatTimestamp(msg.timestamp)}</div>
+        <div class="reactions mt-1" data-message-id="${msg.id}"></div>
+        <div class="reaction-selector hidden group-hover:flex mt-1 bg-white dark:bg-darkgray p-1 rounded shadow-lg">
+            ${reactions.map(reaction => `
+                <button class="reaction-btn flex-1 min-w-0 px-1 py-1 text-sm sm:text-base">
+                    ${reaction}
+                </button>
+            `).join('')}
+        </div>
+    `;
+    
+    const reactionSelector = item.querySelector('.reaction-selector');
+    reactionSelector.addEventListener('click', (e) => {
+        if (e.target.classList.contains('reaction-btn')) {
+            socket.emit('message reaction', msg.id, e.target.textContent.trim());
+        }
+    });
+
+    messages.appendChild(item);
+    updateReactions(msg.id, msg.reactions);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  function updateReactions(messageId, reactions) {
+    const reactionContainer = document.querySelector(`.reactions[data-message-id="${messageId}"]`);
+    if (reactionContainer) {
+        reactionContainer.innerHTML = '';
+        for (const [reaction, users] of Object.entries(reactions)) {
+            if (users.length > 0) {
+                const reactionSpan = document.createElement('span');
+                reactionSpan.className = 'inline-block mr-2 mb-1 bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded text-sm';
+                reactionSpan.textContent = `${reaction} ${users.length}`;
+                reactionContainer.appendChild(reactionSpan);
+            }
+        }
+    }
   }
 
   function addNotification(text) {
@@ -63,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
               li.className = 'flex items-center space-x-2 mb-2 p-2 rounded transition-colors duration-200 hover:bg-gray-200 dark:hover:bg-darkergray';
               li.innerHTML = `
                   <span class="w-2 h-2 rounded-full bg-green-500"></span>
-                  <span class="font-medium" style="color: ${getColorForUsername(user)}">${user}</span>
+                  <span class="font-medium" style="color: ${user.color}">${user.name}</span>
               `;
               list.appendChild(li);
           });
@@ -88,15 +113,15 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       socket.on('init', (lastMessages, users) => {
-          messages.innerHTML = ''; // Clear existing messages
+          messages.innerHTML = '';
           lastMessages.forEach(addMessage);
           updateUserList(users);
       });
 
       socket.on('chat message', addMessage);
 
-      socket.on('user joined', (username, users) => {
-          addNotification(`${username} has joined the chat`);
+      socket.on('user joined', (user, users) => {
+          addNotification(`${user.name} has joined the chat`);
           updateUserList(users);
       });
 
@@ -105,33 +130,76 @@ document.addEventListener('DOMContentLoaded', () => {
           updateUserList(users);
       });
 
-      messageForm.addEventListener('submit', (e) => {
-          e.preventDefault();
-          if (messageInput.value.trim()) {
-              socket.emit('chat message', messageInput.value);
-              messageInput.value = '';
+      socket.on('user count', (count) => {
+          userCount.textContent = `${count} user${count !== 1 ? 's' : ''} online`;
+      });
+
+      socket.on('user typing', (typingUsers) => {
+          if (typingUsers.length > 0) {
+              const typingText = typingUsers.length > 3
+                  ? `${typingUsers.length} people are typing...`
+                  : `${typingUsers.join(', ')} ${typingUsers.length === 1 ? 'is' : 'are'} typing...`;
+              typingIndicator.textContent = typingText;
+              typingIndicator.classList.remove('hidden');
+          } else {
+              typingIndicator.classList.add('hidden');
           }
       });
 
-      toggleUserListButton.addEventListener('click', () => {
-          userListModal.classList.remove('hidden');
+      socket.on('user renamed', (oldName, newUser) => {
+          addNotification(`${oldName} is now known as ${newUser.name}`);
+          updateUserList(users);
       });
 
-      closeUserListButton.addEventListener('click', () => {
-          userListModal.classList.add('hidden');
+      socket.on('user color changed', (user) => {
+          addNotification(`${user.name} changed their color`);
+          updateUserList(users);
       });
-  }
 
-  // Theme toggle functionality
-  toggleThemeButton.addEventListener('click', () => {
-      document.documentElement.classList.toggle('dark');
-      localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-  });
+      socket.on('clear chat', () => {
+          messages.innerHTML = '';
+      });
 
-  // Set initial theme
-  if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark');
-  } else {
-      document.documentElement.classList.remove('dark');
-  }
+      socket.on('message reaction', (messageId, updatedReactions) => {
+        const messageElement = document.querySelector(`li[data-message-id="${messageId}"]`);
+        if (messageElement) {
+            updateReactions(messageId, updatedReactions);
+        }
+      });
+
+      messageForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (messageInput.value.trim()) {
+            socket.emit('chat message', messageInput.value);
+            messageInput.value = '';
+        }
+    });
+
+    messageInput.addEventListener('input', () => {
+        socket.emit('typing');
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+            socket.emit('stop typing');
+        }, 1000);
+    });
+
+    toggleUserListButton.addEventListener('click', () => {
+        userListModal.classList.remove('hidden');
+    });
+
+    closeUserListButton.addEventListener('click', () => {
+        userListModal.classList.add('hidden');
+    });
+}
+
+toggleThemeButton.addEventListener('click', () => {
+    document.documentElement.classList.toggle('dark');
+    localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+});
+
+if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    document.documentElement.classList.add('dark');
+} else {
+    document.documentElement.classList.remove('dark');
+}
 });
