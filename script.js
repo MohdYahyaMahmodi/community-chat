@@ -152,6 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUserList(updatedUsers);
         // The typing indicator will be updated automatically by the server
     });
+    
 
       socket.on('user color changed', (user, updatedUsers) => {
           addNotification(`${user.name} changed their color`);
