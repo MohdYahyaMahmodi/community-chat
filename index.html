@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Community Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#000',
+                        darkgray: '#333331',
+                        darkergray: '#282C34',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar styles */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .dark ::-webkit-scrollbar-track {
+            background: #282C34;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* Ensure the chat area takes up all available space */
+        .chat-area {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        /* Make messages container take up all available space */
+        #messagesContainer {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        /* Fix the message form at the bottom */
+        #messageForm {
+            flex-shrink: 0;
+        }
+        /* Ensure long messages wrap properly */
+        .message-content {
+            word-wrap: break-word;
+            word-break: break-word;
+            hyphens: auto;
+        }
+        /* Make user list scrollable */
+        #userList, #mobileUserList {
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-darkbg text-gray-800 dark:text-gray-200 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-200">
+    <!-- Username Modal -->
+    <div id="usernameModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-darkgray p-8 rounded-lg shadow-lg w-11/12 max-w-md">
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-6">Join the Community Chat</h2>
+            <form id="usernameForm" class="space-y-4">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Choose your username</label>
+                    <input type="text" id="username" required placeholder="Enter username..." class="w-full px-3 py-2 bg-gray-100 dark:bg-darkergray text-gray-800 dark:text-gray-200 rounded border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:focus:ring-gray-500">
+                </div>
+                <button type="submit" class="w-full bg-gray-600 dark:bg-darkergray text-white py-2 px-4 rounded hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors duration-300 flex items-center justify-center">
+                    <i class="fas fa-sign-in-alt mr-2"></i> Join Chat
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Chat Interface -->
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <!-- Sidebar (User List) - Hidden on mobile, narrower on larger screens -->
+        <div id="sidebar" class="w-full md:w-1/5 lg:w-1/6 xl:w-1/7 bg-gray-100 dark:bg-darkgray p-4 hidden md:block border-r border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl font-bold mb-4 text-gray-700 dark:text-gray-300">Online Users</h2>
+            <ul id="userList" class="space-y-2"></ul>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="flex-1 flex flex-col chat-area">
+            <!-- Chat Header -->
+            <div class="bg-white dark:bg-darkgray p-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+                <h1 class="text-2xl font-bold text-gray-700 dark:text-gray-300">Community Chat</h1>
+                <div class="flex items-center space-x-2">
+                    <button id="toggleTheme" class="bg-gray-200 dark:bg-darkergray text-gray-800 dark:text-gray-200 p-2 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-300">
+                        <i class="fas fa-moon dark:hidden"></i>
+                        <i class="fas fa-sun hidden dark:inline"></i>
+                    </button>
+                    <button id="toggleUserList" class="md:hidden bg-gray-600 dark:bg-darkergray text-white p-2 rounded hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors duration-300">
+                        <i class="fas fa-users"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Messages Container -->
+            <div id="messagesContainer" class="p-4 bg-gray-50 dark:bg-darkbg">
+                <ul id="messages" class="space-y-4"></ul>
+            </div>
+
+            <!-- Message Input Form -->
+            <form id="messageForm" class="bg-white dark:bg-darkgray p-4 flex items-center space-x-2 border-t border-gray-200 dark:border-gray-700">
+                <input id="messageInput" type="text" placeholder="Type your message..." class="flex-1 px-4 py-2 bg-gray-100 dark:bg-darkergray text-gray-800 dark:text-gray-200 rounded border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:focus:ring-gray-500">
+                <button type="submit" class="bg-gray-600 dark:bg-darkergray text-white py-2 px-4 rounded hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors duration-300 flex items-center">
+                    <i class="fas fa-paper-plane mr-2"></i> Send
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- User List Modal (for mobile) -->
+    <div id="userListModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 hidden">
+        <div class="bg-white dark:bg-darkgray p-4 rounded-lg shadow-lg w-11/12 max-w-md">
+            <h2 class="text-xl font-bold mb-4 text-gray-700 dark:text-gray-300">Online Users</h2>
+            <ul id="mobileUserList" class="space-y-2"></ul>
+            <button id="closeUserList" class="mt-4 w-full bg-gray-600 dark:bg-darkergray text-white py-2 px-4 rounded hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors duration-300">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="/script.js"></script>
+</body>
+</html>
