@@ -108,9 +108,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function initializeChat(username) {
-      socket = io({
-          query: { username }
-      });
+    socket = io({
+        query: { username }
+    });
 
       socket.on('init', (lastMessages, users) => {
           messages.innerHTML = '';
@@ -146,14 +146,16 @@ document.addEventListener('DOMContentLoaded', () => {
           }
       });
 
-      socket.on('user renamed', (oldName, newUser) => {
-          addNotification(`${oldName} is now known as ${newUser.name}`);
-          updateUserList(users);
-      });
 
-      socket.on('user color changed', (user) => {
+      socket.on('user renamed', (oldName, newUser, updatedUsers) => {
+        addNotification(`${oldName} is now known as ${newUser.name}`);
+        updateUserList(updatedUsers);
+        // The typing indicator will be updated automatically by the server
+    });
+
+      socket.on('user color changed', (user, updatedUsers) => {
           addNotification(`${user.name} changed their color`);
-          updateUserList(users);
+          updateUserList(updatedUsers);
       });
 
       socket.on('clear chat', () => {

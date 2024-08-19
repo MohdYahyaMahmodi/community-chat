@@ -78,38 +78,40 @@ io.on('connection', (socket) => {
   io.emit('user count', Object.keys(users).length);
   debug(`Sent init data to ${username}. Current user count: ${Object.keys(users).length}`);
 
-    socket.on('chat message', (msg) => {
-        debug(`Received message from ${username}: ${msg}`);
-        if (msg.length > MAX_MESSAGE_LENGTH) {
-            debug(`Message too long (${msg.length} chars). Ignoring.`);
-            return;
-        }
+  socket.on('chat message', (msg) => {
+    debug(`Received message from ${username}: ${msg}`);
+    if (msg.length > MAX_MESSAGE_LENGTH) {
+        debug(`Message too long (${msg.length} chars). Ignoring.`);
+        return;
+    }
 
-        if (msg.startsWith('/nick ')) {
-            const newNickname = msg.slice(6).trim();
-            if (newNickname && newNickname.length <= MAX_USERNAME_LENGTH) {
-                const oldNickname = users[socket.id].name;
-                users[socket.id].name = newNickname;
-                io.emit('user renamed', oldNickname, users[socket.id]);
-                io.emit('user count', Object.keys(users).length);
-                debug(`User ${oldNickname} renamed to ${newNickname}`);
-            }
-            return;
-        }
+    if (msg.startsWith('/nick ')) {
+      const newNickname = msg.slice(6).trim();
+      if (newNickname && newNickname.length <= MAX_USERNAME_LENGTH) {
+          const oldNickname = users[socket.id].name;
+          users[socket.id].name = newNickname;
+          typingUsers.delete(oldNickname);  // Remove old nickname from typing users
+          io.emit('user renamed', oldNickname, users[socket.id], Object.values(users));
+          io.emit('user count', Object.keys(users).length);
+          socket.broadcast.emit('user typing', Array.from(typingUsers));  // Update typing users for all clients
+          debug(`User ${oldNickname} renamed to ${newNickname}`);
+      }
+      return;
+  }
 
-        if (msg === '/clear') {
-            socket.emit('clear chat');
-            debug(`${username} cleared their chat`);
-            return;
-        }
+    if (msg === '/clear') {
+        socket.emit('clear chat');
+        debug(`${username} cleared their chat`);
+        return;
+    }
 
-        if (msg === '/color') {
-            const newColor = getRandomColor();
-            users[socket.id].color = newColor;
-            io.emit('user color changed', users[socket.id]);
-            debug(`${username} changed color to ${newColor}`);
-            return;
-        }
+    if (msg === '/color') {
+        const newColor = getRandomColor();
+        users[socket.id].color = newColor;
+        io.emit('user color changed', users[socket.id], Object.values(users));
+        debug(`${username} changed color to ${newColor}`);
+        return;
+    }
 
         const formattedMsg = formatMessage(replaceEmojis(msg));
 
@@ -128,16 +130,16 @@ io.on('connection', (socket) => {
     });
 
     socket.on('typing', () => {
-        debug(`${username} is typing`);
-        typingUsers.add(username);
-        socket.broadcast.emit('user typing', Array.from(typingUsers));
-    });
+      debug(`${users[socket.id].name} is typing`);
+      typingUsers.add(users[socket.id].name);
+      socket.broadcast.emit('user typing', Array.from(typingUsers));
+  });
 
-    socket.on('stop typing', () => {
-        debug(`${username} stopped typing`);
-        typingUsers.delete(username);
-        socket.broadcast.emit('user typing', Array.from(typingUsers));
-    });
+  socket.on('stop typing', () => {
+      debug(`${users[socket.id].name} stopped typing`);
+      typingUsers.delete(users[socket.id].name);
+      socket.broadcast.emit('user typing', Array.from(typingUsers));
+  });
 
     socket.on('message reaction', (messageId, reaction) => {
         debug(`Reaction from ${username}: ${reaction} on message ${messageId}`);
